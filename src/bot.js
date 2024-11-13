@@ -11,13 +11,7 @@ export const bot = new Bot(process.env.BOT_TOKEN);
 export const userResponses = {};
 export let check = true;
 export let checkPhoto = false;
-export let count = 0;
 
-export const nextQuestion = (ctx) => {
-  check = false;
-  userResponses[ctx.chat.id].currentQuestion++;
-  ctx.reply(questions[userResponses[ctx.chat.id].currentQuestion].message);
-};
 
 export const getBackPhoto = (ctx) => {
   check = false;
@@ -83,7 +77,6 @@ const initBot = async () => {
     }
 
     // Media group ID ni saqlash
-
     if (!userResponses[userId] || userResponses[userId].currentQuestion !== 0)
       return;
 
@@ -278,6 +271,9 @@ const initBot = async () => {
   bot.callbackQuery("deny", (ctx) => {
     const userId = ctx.callbackQuery.message.chat.id;
     userResponses[userId] = { answers: [], currentQuestion: 0 };
+    check = true;
+    checkPhoto = false;
+
     ctx.reply("🔄 Malumotlaringizni qaytadan kiriting!");
     ctx.reply(questions[0].message);
     ctx.answerCallbackQuery();
