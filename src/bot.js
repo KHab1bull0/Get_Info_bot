@@ -12,7 +12,6 @@ export const userResponses = {};
 export let check = true;
 export let checkPhoto = false;
 
-
 export const getBackPhoto = (ctx) => {
   check = false;
   checkPhoto = true;
@@ -29,8 +28,110 @@ export const confirmPhoto = (ctx) => {
         .text("Ha", "confirm_photo")
         .text("Yo'q", "deny_photo"),
     });
-  }, 10000);
+  }, 12000);
 };
+
+// Bot admin bo'lgan guruhlarni olish
+async function getAdminGroups() {
+  const groups = [];
+
+  try {
+    // Botning barcha chatlarini olish
+    const updates = await bot.api.getUpdates();
+    const chatIds = new Set();
+
+    // Unique chat ID larni yig'ish
+    updates.forEach((update) => {
+      if (
+        update.message?.chat.type === "supergroup" ||
+        update.message?.chat.type === "group"
+      ) {
+        chatIds.add(update.message.chat.id);
+      }
+    });
+
+    // Har bir chat uchun botning admin huquqlarini tekshirish
+    for (const chatId of chatIds) {
+      try {
+        const chatInfo = await bot.api.getChat(chatId);
+        const botInfo = await bot.api.getMe();
+        const adminInfo = await bot.api.getChatMember(chatId, botInfo.id);
+
+        if (chatInfo.type === "supergroup" || chatInfo.type === "group") {
+          const groupInfo = {
+            chatId: chatId,
+            title: chatInfo.title || "Nomsiz guruh",
+            membersCount: await bot.api.getChatMemberCount(chatId),
+            isAdmin: adminInfo.status === "administrator",
+            adminPermissions: null,
+          };
+
+          if (adminInfo.status === "administrator") {
+            groupInfo.adminPermissions = {
+              canDeleteMessages: adminInfo.can_delete_messages,
+              canRestrictMembers: adminInfo.can_restrict_members,
+              canPromoteMembers: adminInfo.can_promote_members,
+              canChangeInfo: adminInfo.can_change_info,
+              canInviteUsers: adminInfo.can_invite_users,
+              canPinMessages: adminInfo.can_pin_messages,
+            };
+          }
+
+          groups.push(groupInfo);
+        }
+      } catch (err) {
+        console.error(`Xatolik yuz berdi chatId=${chatId}:`, err);
+      }
+    }
+  } catch (err) {
+    console.error("Guruhlar ro'yxatini olishda xatolik:", err);
+  }
+
+  return groups;
+}
+
+// Admin guruhlar ro'yxatini ko'rsatish komandasi
+bot.command("my_groups", async (ctx) => {
+  try {
+    const adminGroups = await getAdminGroups();
+
+    if (adminGroups.length === 0) {
+      await ctx.reply("Bot hech qaysi guruhda admin emas.");
+      return;
+    }
+
+    let message = "Bot admin bo'lgan guruhlar ro'yxati:\n\n";
+    adminGroups.forEach((group, index) => {
+      message += `${index + 1}. ${group.title}\n`;
+      message += `   Chat ID: ${group.chatId}\n`;
+      message += `   A'zolar soni: ${group.membersCount}\n`;
+
+      if (group.adminPermissions) {
+        message += "   Huquqlar:\n";
+        const permissions = {
+          canDeleteMessages: "- Xabarlarni o'chirish",
+          canRestrictMembers: "- Foydalanuvchilarni cheklash",
+          canPromoteMembers: "- Admin tayinlash",
+          canChangeInfo: "- Guruh ma'lumotlarini o'zgartirish",
+          canInviteUsers: "- Foydalanuvchilarni taklif qilish",
+          canPinMessages: "- Xabarlarni qadash",
+        };
+
+        for (const [key, value] of Object.entries(group.adminPermissions)) {
+          if (value) {
+            message += `   ${permissions[key]}\n`;
+          }
+        }
+      }
+      message += "\n";
+    });
+
+    await ctx.reply(message);
+  } catch (error) {
+    console.error("Xatolik yuz berdi:", error);
+    await ctx.reply("Xatolik yuz berdi. Iltimos qaytadan urinib ko'ring.");
+  }
+});
 
 const initBot = async () => {
   bot.use(session());
@@ -188,10 +289,10 @@ const initBot = async () => {
               index === 0
                 ? `👤 Malumotlaringiz to'g'rimi?\n\n` +
                   `💳 Plastik karta: ${user.answers[1].split(" ")[0]}${
-                    user.answers[1].split(" ")[1]
-                  }\n` +
-                  `📍 Yashash manzil:\n${user.answers[3]}\n${user.answers[4]}\n${user.answers[5]}\n${user.answers[6]}\n` +
-                  `📱 Telefon: ${user.answers[7]}`
+                    user.answers[1].split(" ")[1]}\n` +
+                  `📍 Yashash manzil:\nShahar: ${user.answers[2]}\nTuman: ${user.answers[3]}\nMahalla: ${user.answers[4]}\nKo'cha: ${user.answers[5]}\nUy: ${user.answers[6]}\n` +
+                  `📱 Telefon: ${user.answers[7]}\n` +
+                  `🛒 Xarid qilmoqchisiz: ${user.answers[8]}`
                 : "",
             parse_mode: "HTML",
           }));
@@ -217,7 +318,8 @@ const initBot = async () => {
 
   bot.callbackQuery("confirm", async (ctx) => {
     const userId = ctx.callbackQuery.message.chat.id;
-    const groupId = config.groupId;
+    const groupId1 = config.groupId1;
+    const groupId2 = config.groupId2;
     const user = userResponses[userId];
     const messageId = ctx.callbackQuery.message.message_id;
 
@@ -233,15 +335,17 @@ const initBot = async () => {
                 `💳 Plastik karta: <code>${
                   user.answers[1].split(" ")[0]
                 }</code> <code>${user.answers[1].split(" ")[1]}</code>\n` +
-                `📍 Yashash manzil:\n${user.answers[3]}\n${user.answers[4]}\n${user.answers[5]}\n${user.answers[6]}\n` +
-                `📱 Telefon: ${user.answers[7]}`
+                `📍 Yashash manzil:\nShahar: ${user.answers[2]}\nTuman: ${user.answers[3]}\nMahalla: ${user.answers[4]}\nKo'cha: ${user.answers[5]}\nUy: ${user.answers[6]}\n` +
+                `📱 Telefon: ${user.answers[7]}\n` +
+                `🛒 Xarid qilmoqda: ${user.answers[8]}`
               : "",
           parse_mode: "HTML",
         }));
       }
 
       try {
-        await bot.api.sendMediaGroup(groupId, media, { parse_mode: "HTML" });
+        await bot.api.sendMediaGroup(groupId1, media, { parse_mode: "HTML" });
+        await bot.api.sendMediaGroup(groupId2, media, { parse_mode: "HTML" });
       } catch (error) {
         console.log(error);
       }
@@ -268,13 +372,14 @@ const initBot = async () => {
     ctx.answerCallbackQuery();
   });
 
-  bot.callbackQuery("deny", (ctx) => {
+  bot.callbackQuery("deny", async (ctx) => {
     const userId = ctx.callbackQuery.message.chat.id;
     userResponses[userId] = { answers: [], currentQuestion: 0 };
     check = true;
     checkPhoto = false;
 
     ctx.reply("🔄 Malumotlaringizni qaytadan kiriting!");
+    await new Promise((resolve) => setTimeout(resolve, 100));
     ctx.reply(questions[0].message);
     ctx.answerCallbackQuery();
   });

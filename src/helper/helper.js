@@ -12,10 +12,12 @@ export const questions = [
   { key: "address", message: "📍 Ko'cha:" },
   { key: "address_nomer", message: "📍 Uy raqami:" },
   { key: "phone", message: "📱 Telefon raqamingizni shu formatda kiriting: +998901234567" },
+  { key: "product", message: "🛒 Xarid qilayotgan mahsulotlaringiz!"}
 ];
 
 export const commands = [
   { command: "start", description: "Boshlash" },
   { command: "info", description: "Bot haqida" },
-  { command: "clear_history", description: "Tahrirlash" },
+  { command: "clear_history", description: "Tozalash" },
 ];
+ 
